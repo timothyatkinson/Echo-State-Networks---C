@@ -1,4 +1,5 @@
 #include "esn.h"
+#include "train.h"
 
 int
 main (void)
@@ -71,27 +72,35 @@ main (void)
     gsl_matrix_free(b);
     gsl_matrix_free(c);
 
-    ESN* esn = empty_esn(1, 1, 10, 0.5, 1, 1);
-    print_esn_full(esn);
+    ESN* esn = empty_esn(1, 1, 400, 0.5, 1, 1);
     randomize_esn(esn, 0.5);
 
     gsl_matrix* in = gsl_matrix_alloc(2, 1);
     gsl_matrix_set(in, 0, 0, 1.0);
     gsl_matrix_set(in, 1, 0, 0.0);
 
-    printf("\n In \n\n");
-
-    print_matrix(in);
-
-    for(int i = 0; i < 100; i++){
-        print_esn(esn);
-      update_esn(esn, in);
+    train_table* t = malloc(sizeof(train_table));
+    int rows = 8000;
+    t->entries = rows;
+    t->warmups = 100;
+    t->warmup_m = in;
+    t->uN = malloc(rows * sizeof(gsl_matrix*));
+    t->y_target = malloc(rows * sizeof(double));
+    for(int i = 0; i < rows; i++){
+      t->uN[i] = gsl_matrix_alloc(2, 1);
+      gsl_matrix_set(t->uN[i], 0, 0, 1.0);
+      gsl_matrix_set(t->uN[i], 1, 0, (double)(i + 1.0) * 0.1);
+      t->y_target[i] = 10000.0 / (double)(i + 1.0);
     }
+    train_dataset* dataset = malloc(sizeof(train_dataset));
+    dataset->train = t;
+    train_esn_pinverse(esn, dataset, 0);
 
-    print_esn_full(esn);
+    train_print(esn, dataset, 0);
+
     free_esn(esn);
-    gsl_matrix_free(in);
 
+    train_table_free(t);
 
 
   return 0;
@@ -177,8 +186,8 @@ void update_esn(ESN* esn, gsl_matrix* uN){
   gsl_matrix_scale(esn->state, 1.0 - esn->leak_rate);
   gsl_matrix_scale(new_state, esn->leak_rate);
   gsl_matrix_add(new_state, esn->state);
-  free(esn->state);
-  free(res_state);
+  gsl_matrix_free(esn->state);
+  gsl_matrix_free(res_state);
   esn->state = new_state;
 }
 
@@ -193,15 +202,22 @@ void randomize_esn(ESN* esn, double density){
     for(int j = 0; j < esn->inputs + 1; j++){
       gsl_matrix_set(esn->wIn, i, j, rand_range(-1.0, 1.0));
     }
-    for(int j = 0; j < esn->nodes; j++){
-      if(rand_bool(density)){
-        gsl_matrix_set(esn->w, i, j, rand_range(-0.5, 0.5));
-      }
-      else{
-        gsl_matrix_set(esn->w, i, j, 0);
+  }
+  bool first = true;
+  if(density != 0.0){
+    while(first || gsl_matrix_max_eigenvalue(esn->w) == 0.0){
+      first = false;
+      for(int i = 0; i < esn->nodes; i++){
+        for(int j = 0; j < esn->nodes; j++){
+          if(rand_bool(density)){
+            gsl_matrix_set(esn->w, i, j, rand_range(-0.5, 0.5));
+          }
+          else{
+            gsl_matrix_set(esn->w, i, j, 0);
+          }
+        }
       }
     }
+    gsl_matrix_scale(esn->w, 1.0 / gsl_matrix_max_eigenvalue(esn->w));
   }
-  gsl_matrix_scale(esn->w, 1.0 / gsl_matrix_max_eigenvalue(esn->w));
-
 }
