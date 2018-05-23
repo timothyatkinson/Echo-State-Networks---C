@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <math.h>
 
 /**rand_double - RAND DOUBLE
   *Computes a random double between 0 and 1 using C's inbuilt RNG

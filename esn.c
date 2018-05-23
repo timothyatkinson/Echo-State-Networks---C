@@ -1,106 +1,90 @@
 #include "esn.h"
 #include "train.h"
+#include "included_datasets.h"
 
 int
 main (void)
 {
   srand(time(NULL));
-  int i, j;
-  gsl_matrix * m = gsl_matrix_alloc (10, 3);
 
-  for (i = 0; i < 10; i++)
-    for (j = 0; j < 3; j++)
-      gsl_matrix_set (m, i, j, 0.23 + 100*i + j);
+    printf("Generating dataset\n");
+    train_dataset* dataset = NARMA__10_dataset(6000, 2000, 2000, 100, 0.3, 0.05, 0.1, 1.0, 0.0, 0.5);
+    printf("Training\n");
+    double betas[5];
+    betas[0] = 0.1;
+    betas[1] = 0.001;
+    betas[2] = 0.00001;
+    betas[3] = 0.0000001;
+    betas[4] = 0.000000001;
 
-  for (i = 0; i < 10; i++)  /* OUT OF RANGE ERROR */
-    for (j = 0; j < 3; j++)
-      printf ("m(%d,%d) = %g\n", i, j,
-              gsl_matrix_get (m, i, j));
+    int runs = 100;
 
-  gsl_matrix_free (m);
+    double train_scores[runs];
+    double best_train = 999999;
+    double validate_scores[runs];
+    double best_validate = 999999;
+    double test_scores[runs];
+    double best_test = 999999;
 
+    double best_lr;
+    double best_is;
+    double best_sr;
+    double best_s;
 
+    int nodes = 200;
 
-  	const unsigned int N = 2;
-  	const unsigned int M = 3;
-  	const double rcond = 1E-15;
+    for(int i = 0; i < runs; i++){
+      double leak_rate = rand_range(0.0, 1.0);
+      double input_scale = rand_range(-1.0, 1.0);
+      double spectral_radius = rand_range(-1.0, 1.0);
+      double sparsity = rand_range(0.005, 1.0);
+      ESN* esn = empty_esn(1, 1, nodes, leak_rate, input_scale, spectral_radius);
+      printf("ESN %d: sparsity = %lf | leak rate = %lf | input scale = %lf | spectral radius = %lf\n", i, sparsity, leak_rate, input_scale, spectral_radius);
+      randomize_esn(esn, sparsity);
+      train_esn_ridge_regression(esn, dataset, 0, 1, betas, 5);
+      double train_score = nmse(esn, dataset, 0);
+      double validate_score = nmse(esn, dataset, 1);
+      double test_score = nmse(esn, dataset, 2);
+      train_scores[i] = train_score;
+      validate_scores[i] = validate_score;
+      test_scores[i] = test_score;
+      if(train_score < best_train){
+        best_train = train_score;
+      }
+      if(validate_score < best_validate){
+        best_validate = validate_score;
+        best_lr = leak_rate;
+        best_is = input_scale;
+        best_sr = spectral_radius;
+        best_s = sparsity;
+      }
+      if(test_score < best_test){
+        best_test = test_score;
+      }
+      printf("  scores: %lf | %lf | %lf\n", train_score, validate_score, test_score);
+      free_esn(esn);
 
-
-  	gsl_matrix *A = gsl_matrix_alloc(N, M);
-  	gsl_matrix *A_pinv;
-
-  	gsl_matrix_set(A, 0, 0, 1.);
-  	gsl_matrix_set(A, 0, 1, 3.);
-  	gsl_matrix_set(A, 0, 2, 5.);
-  	gsl_matrix_set(A, 1, 0, 2.);
-  	gsl_matrix_set(A, 1, 1, 4.);
-  	gsl_matrix_set(A, 1, 2, 6.);
-
-  	printf("A matrix:\n");
-  	print_matrix(A);
-    printf("No really A matrix:\n");
-    print_matrix(A);
-  	A_pinv = gsl_matrix_pinv(A, rcond);
-  	printf("\nPseudoinverse of A:\n");
-  	print_matrix(A_pinv);
-
-  	gsl_matrix_free(A);
-  	gsl_matrix_free(A_pinv);
-
-    gsl_matrix *a = gsl_matrix_alloc(2, 3);
-    gsl_matrix *b = gsl_matrix_alloc(3, 1);
-
-    gsl_matrix_set(a, 0, 0, 0.11);
-    gsl_matrix_set(a, 0, 1, 0.12);
-    gsl_matrix_set(a, 0, 2, 0.13);
-    gsl_matrix_set(a, 1, 0, 0.21);
-    gsl_matrix_set(a, 1, 1, 0.22);
-    gsl_matrix_set(a, 1, 2, 0.23);
-
-    gsl_matrix_set(b, 0, 0, 1011);
-    gsl_matrix_set(b, 1, 0, 1021);
-    gsl_matrix_set(b, 2, 0, 1031);
-
-    printf("Mulitply\n");
-    print_matrix(a);
-    printf("By\n");
-    print_matrix(b);
-    printf("=\n");
-    gsl_matrix* c = gsl_matrix_multiply(a, b);
-    print_matrix(c);
-    gsl_matrix_free(a);
-    gsl_matrix_free(b);
-    gsl_matrix_free(c);
-
-    ESN* esn = empty_esn(1, 1, 400, 0.5, 1, 1);
-    randomize_esn(esn, 0.5);
-
-    gsl_matrix* in = gsl_matrix_alloc(2, 1);
-    gsl_matrix_set(in, 0, 0, 1.0);
-    gsl_matrix_set(in, 1, 0, 0.0);
-
-    train_table* t = malloc(sizeof(train_table));
-    int rows = 8000;
-    t->entries = rows;
-    t->warmups = 100;
-    t->warmup_m = in;
-    t->uN = malloc(rows * sizeof(gsl_matrix*));
-    t->y_target = malloc(rows * sizeof(double));
-    for(int i = 0; i < rows; i++){
-      t->uN[i] = gsl_matrix_alloc(2, 1);
-      gsl_matrix_set(t->uN[i], 0, 0, 1.0);
-      gsl_matrix_set(t->uN[i], 1, 0, (double)(i + 1.0) * 0.1);
-      t->y_target[i] = 10000.0 / (double)(i + 1.0);
     }
-    train_dataset* dataset = malloc(sizeof(train_dataset));
-    dataset->train = t;
-    train_esn_pinverse(esn, dataset, 0);
 
-    train_print(esn, dataset, 0);
+    printf("Train: mean %lf best %lf\n", train_mean(train_scores, runs), best_train);
+    printf("Validate: mean %lf best %lf\n", train_mean(validate_scores, runs), best_validate);
+    printf("Test: mean %lf best %lf\n", train_mean(test_scores, runs), best_test);
 
-    free_esn(esn);
+    printf("\n\nBest validate params: [%lf, %lf, %lf, %lf]\n", best_s, best_lr, best_is, best_sr);
+    ESN* esn = empty_esn(1, 1, nodes, best_lr, best_is, best_sr);
+    for(int i = 0; i < 20; i++){
+      randomize_esn(esn, best_s);
+      train_esn_ridge_regression(esn, dataset, 0, 1, betas, 5);
+      double train_score = nmse(esn, dataset, 0);
+      double validate_score = nmse(esn, dataset, 1);
+      double test_score = nmse(esn, dataset, 2);
+      printf("  scores: %lf | %lf | %lf\n", train_score, validate_score, test_score);
+    }
 
-    train_table_free(t);
+    free(esn);
+
+    train_dataset_free(dataset);
+
 
 
   return 0;
@@ -169,7 +153,7 @@ void free_esn(ESN* esn){
 
 /**update_esn - UPDATE ESN
   * Steps an ESN along according to input uN.
-  * Update x(t) = tanh((wIn * input_scale).uN + w.x'(t - 1))
+  * Update x(t) = tanh((wIn * input_scale).uN + (w * spectral_radius).x'(t - 1))
   * New state x'(t) = (1 - leak_rate) * x'(t - 1) + leak_rate * x(t)
   * x'(t - 1) is the old state at time t
     * esn. The ESN to update.
@@ -179,6 +163,7 @@ void update_esn(ESN* esn, gsl_matrix* uN){
   gsl_matrix* new_state = gsl_matrix_multiply(esn->wIn, uN);
   gsl_matrix_scale(new_state, esn->input_scale);
   gsl_matrix* res_state = gsl_matrix_multiply(esn->w, esn->state);
+  gsl_matrix_scale(res_state, esn->spectral_radius);
   gsl_matrix_add(new_state, res_state);
   for(int i = 0; i < esn->nodes; i++){
     gsl_matrix_set(new_state, i, 0, tanh(gsl_matrix_get(new_state, i, 0)));
@@ -191,7 +176,7 @@ void update_esn(ESN* esn, gsl_matrix* uN){
   esn->state = new_state;
 }
 
-/**randomize_esn - RANDOMIZE ESN_H
+/**randomize_esn - RANDOMIZE ESN
   * Randomizes an ESN's weight matrices. Input weights (wIn) are uniformally chosen from the interval [-1, 1]. Resevoir weights (w) occur with probability (density) and
   * are uniformally chosen from the interval [-0.5, 0.5]. The resevoir weights (w) are then scaled by their (1 / maximum eigenvalue).
     * esn. The esn to randomize

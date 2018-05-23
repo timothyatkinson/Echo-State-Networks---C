@@ -13,7 +13,7 @@ double rand_double(){
     * max. The maximum value
 */
 double rand_range(double min, double max){
-  return min + (rand_double() * abs(max - min));
+  return min + (rand_double() * fabs(max - min));
 }
 
 /**rand_bool - RAND BOOLEAN

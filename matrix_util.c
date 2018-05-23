@@ -40,7 +40,7 @@ gsl_matrix* gsl_matrix_multiply(gsl_matrix* a, gsl_matrix* b){
 	int b2 = b->size2;
 
 	if(a2 != b1){
-		printf("Error: Matrix dimensions do not match.\n");
+		printf("Error: Matrix dimensions do not match. %d x %d . %d x %d\n", a1, a2, b1, b2);
 		//exit(0);
 	}
 
@@ -49,6 +49,98 @@ gsl_matrix* gsl_matrix_multiply(gsl_matrix* a, gsl_matrix* b){
 	gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, a, b, 0.0, c);
 
 	return c;
+}
+
+/**Multiplies 2 gsl_matrices together at.b, returning the produced matrix as a pointer. Preserves existing matrices. Multiplication is done using the CBLAS function gsl_blas_dgemm.
+    * a. The first (left) matrix. This is transposed.
+    * b. The second (right) matrix.
+*/
+gsl_matrix* gsl_matrix_multiply_transpose_a(gsl_matrix* a, gsl_matrix* b){
+
+	int a1 = a->size1;
+	int a2 = a->size2;
+	int b1 = b->size1;
+	int b2 = b->size2;
+
+	if(a1 != b1){
+		printf("Error: Matrix dimensions do not match. %d x %d . %d x %d\n", a1, a2, b1, b2);
+		//exit(0);
+	}
+
+	gsl_matrix* c = gsl_matrix_alloc(a2, b2);
+
+	gsl_blas_dgemm(CblasTrans, CblasNoTrans, 1.0, a, b, 0.0, c);
+
+	return c;
+}
+
+/**Multiplies 2 gsl_matrices together a.bt, returning the produced matrix as a pointer. Preserves existing matrices. Multiplication is done using the CBLAS function gsl_blas_dgemm.
+    * a. The first (left) matrix.
+    * b. The second (right) matrix. This is transposed.
+*/
+gsl_matrix* gsl_matrix_multiply_transpose_b(gsl_matrix* a, gsl_matrix* b){
+
+	int a1 = a->size1;
+	int a2 = a->size2;
+	int b1 = b->size1;
+	int b2 = b->size2;
+
+	if(a2 != b2){
+		printf("Error: Matrix dimensions do not match. %d x %d . %d x %d\n", a1, a2, b1, b2);
+		//exit(0);
+	}
+
+	gsl_matrix* c = gsl_matrix_alloc(a1, b1);
+
+	gsl_blas_dgemm(CblasNoTrans, CblasTrans, 1.0, a, b, 0.0, c);
+
+	return c;
+}
+
+/**gsl_matrix_det - GSL MATRIX DET
+	*Computes the determinant of a matrix using its LU decomposition.
+		*a. The matrix to get the determinant of.
+*/
+double gsl_matrix_det(gsl_matrix* a){
+	int signum;
+
+	gsl_matrix* LU = gsl_matrix_alloc(a->size1, a->size2);
+	gsl_matrix_memcpy(LU, a);
+
+	gsl_permutation* p = gsl_permutation_alloc(a->size1);
+
+	gsl_linalg_LU_decomp(LU, p, &signum);
+
+	double det = gsl_linalg_LU_det(LU, signum);
+
+	gsl_matrix_free(LU);
+	gsl_permutation_free(p);
+
+	return det;
+}
+
+/**gsl_matrix_inverse - GSL MATRIX INVERSE
+	*Computes the inverse of a matrix based on its LU decomposition.
+		*a. The matrix to inverse.
+*/
+gsl_matrix* gsl_matrix_inverse(gsl_matrix* a){
+	int signum;
+
+	gsl_matrix* LU = gsl_matrix_alloc(a->size1, a->size2);
+	gsl_matrix_memcpy(LU, a);
+
+	gsl_permutation* p = gsl_permutation_alloc(a->size1);
+
+	gsl_linalg_LU_decomp(LU, p, &signum);
+
+	gsl_matrix* inverse = gsl_matrix_alloc(a->size2, a->size1);
+
+	gsl_linalg_LU_invert(LU, p, inverse);
+
+	gsl_matrix_free(LU);
+	gsl_permutation_free(p);
+
+	return inverse;
 }
 
 /**gsl_matrix_pinv - GSL MATRIX PSEUDOINVERSE
