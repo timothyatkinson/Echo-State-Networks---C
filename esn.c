@@ -17,7 +17,7 @@ main (void)
     betas[3] = 0.0000001;
     betas[4] = 0.000000001;
 
-    int runs = 100;
+    int runs = 10000;
 
     double train_scores[runs];
     double best_train = 999999;
