@@ -1,6 +1,6 @@
-#include "esn.h"
-#include "train.h"
-#include "included_datasets.h"
+#include "../train.h"
+#include "../esn.h"
+#include "../included_datasets.h"
 
 int
 main (void)

@@ -23,6 +23,7 @@ ESN* empty_esn(int inputs, int outputs, int nodes, double leak_rate, double inpu
   esn->w = gsl_matrix_calloc(nodes, nodes);
   esn->wOut = gsl_matrix_calloc(outputs, (1 + nodes + inputs));
   esn->state = gsl_matrix_calloc(nodes, 1);
+  return esn;
 }
 
 /**print_esn - PRINT ESN
